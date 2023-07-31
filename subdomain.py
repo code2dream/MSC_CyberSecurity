@@ -24,10 +24,11 @@ def prepare_args():
     args = parser.parse_args()
     return args
 
-def prepare_words():
+def prepare_words(wordlist_file):
     """generate wordlist"""
-    global words
-    words = arguments.wordlist.read().split()
+    with open(wordlist_file, "r") as file:
+        global words
+        words = file.read().split()
 
 def get_next_word():
     with lock:
@@ -36,7 +37,7 @@ def get_next_word():
         else:
             return None
 
-def check_subdomain():
+def check_subdomain(domain):
     """check subdomain for 200"""
 
     while True:
@@ -45,8 +46,8 @@ def check_subdomain():
             break
 
         try:
-            url = f"https://{word}.{arguments.domain}"
-            request = get(url, timeout=5)
+            url = f"https://{word}.{domain}"
+            request = get(url, timeout=5, allow_redirects=False)  # Limit redirects
             if request.status_code == 200:
                 subdomains.append(url)
                 if arguments.verbose:
@@ -58,12 +59,12 @@ def check_subdomain():
         except StopIteration:
             break
     
-def prepare_threads():
+def prepare_threads(domain):
     
     thread_list = []
     
     for i in range(arguments.threads):
-        thread_list.append(Thread(target = check_subdomain()))
+        thread_list.append(Thread(target=check_subdomain, args=(domain,)))
 
     for thread in thread_list:
         thread.start()
@@ -74,10 +75,9 @@ def prepare_threads():
 
 if __name__ == "__main__":
     arguments = prepare_args()
-    prepare_words()
+    prepare_words(arguments.wordlist.name)
     start_time = time()
-    prepare_threads()
+    prepare_threads(arguments.domain)
     end_time = time()
     print("Sub Domains Found - \n", "\n".join(i for i in subdomains))
     print(f"Time Taken: {round(end_time-start_time,2)}")
-    
